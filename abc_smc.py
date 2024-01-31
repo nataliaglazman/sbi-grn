@@ -15,53 +15,28 @@ from scoring import score
 
 # Define list of parameters and their prior limits
 parlist: List[Dict[str, Union[str, float]]] = [{
-    'name': 'a1',
+    'name': 'log_b1',
     'lower_limit': -3,
     'upper_limit': 3
 }, {
-    'name': 'b1',
+    'name': 'log_k1',
     'lower_limit': -3,
     'upper_limit': 3
 }, {
-    'name': 'g1',
+    'name': 'log_b2',
     'lower_limit': -3,
     'upper_limit': 3
 }, {
-    'name': 'n1',
-    'lower_limit': 0.1,
-    'upper_limit': 3
-}, {
-    'name': 'a2',
+    'name': 'log_k2',
     'lower_limit': -3,
     'upper_limit': 3
 }, {
-    'name': 'b2',
-    'lower_limit': -3,
-    'upper_limit': 9.0
-}, {
-    'name': 'g2',
+    'name': 'log_b3',
     'lower_limit': -3,
     'upper_limit': 3
 }, {
-    'name': 'n2',
-    'lower_limit': 0.1,
-    'upper_limit': 3
-}, {
-    'name': 'a3',
+    'name': 'log_k3',
     'lower_limit': -3,
-    'upper_limit': 3
-}, {
-    'name': 'b3',
-    'lower_limit': -3,
-    'upper_limit': 3
-}, {
-    'name': 'g3',
-    'lower_limit': -3,
-    'upper_limit': 3}, 
-    
-    {
-    'name': 'n3',
-    'lower_limit': 0.1,
     'upper_limit': 3
 }]
 
@@ -71,27 +46,21 @@ def calculate_distance(pars: List[float]) -> float:
     return score_wrapper(*pars)
 
 
-def score_wrapper(a1: float, b1: float, g1: float,
-                     n1: float, a2: float, b2: float,
-                     g2: float, n2: float, a3: float,
-                     b3: float, g3: float, n3: float) -> float:
+def score_wrapper(log_b1: float,
+                     log_k1: float, log_b2: float,
+                     log_k2: float,
+                     log_b3: float, log_k3: float) -> float:
     """Wrapper function repressilator model with 4 parameters, to be called by the optimiser."""
     #pylint: disable=too-many-arguments
 
     # Make a parameter dictionary, converting the log-spaced system params
     par_dict = {
-        "a1": a1,
-        "b1": b1,
-        "g1": g1,
-        "n1": n1,
-        "a2": a2,
-        "b2": b2,
-        "g2": g2,
-        "n2": n2,
-        "a3": a3,
-        "b3": b3,
-        "g3": g3,
-        "n3": n3
+        "b1": 10**log_b1,
+        "k1": 10**log_k1,
+        "b2": 10**log_b2,
+        "k2": 10**log_k2,
+        "b3": 10**log_b3,
+        "k3": 10**log_k3,
     }
 
     # Call the actual scoring function
@@ -153,7 +122,7 @@ def evaluate_parametrisation(pars: List[float]) -> float:
 def generate_parametrisation(processcall: Any = 0,
                              prev_parametrisations=None,
                              prev_weights=None,
-                             eps_dist=1000,
+                             eps_dist=10000.0,
                              kernel=None):
     """ Generate one valid parametrisation given a set of previous
     parametrisations and their corresponding weights. The proposed new
@@ -180,16 +149,17 @@ def generate_parametrisation(processcall: Any = 0,
 
     # Initialise distance beyond the threshold
     current_dist = eps_dist + 1
-
+    print(current_dist)
+    print(eps_dist)
     # Find our parametrisation:
     # If we are in the first SMC step:
     if prev_parametrisations is None:
         # We want to find a parametrisatoin
         # with distance below threshold by doing:
         while current_dist > eps_dist:
+            
             # Sample randomly from the prior
             proposed_pars = sample_prior()
-
             # Check whether the proposed parametrisation
             # is even possible under the priors
             if evaluate_parametrisation(proposed_pars) > 0:
@@ -205,14 +175,16 @@ def generate_parametrisation(processcall: Any = 0,
         # we do until we find a parametrisation below threshold:
         while current_dist > eps_dist:
             # propose a parametrisation from the previous parametrisations
+            print('sucess')
             selected_pars = choices(prev_parametrisations,
                                     weights=prev_weights)[0]
+
 
             # perturb it using the constructed kernel
             # we need this re-seeding to avoid duplicates           
             timeseed = time.time_ns() % 2**16
             proposed_pars = selected_pars + kernel.rvs(random_state=rndint+timeseed)
-
+            
             # Check whether the proposed parametrisation
             # is even possible under the priors
             if evaluate_parametrisation(proposed_pars) > 0:
@@ -236,6 +208,7 @@ def generate_parametrisation(processcall: Any = 0,
 
     # Return the proposed parametrisation, its distance, its weight
     # and all the distances we encountered on our way there.
+        
     return proposed_pars, current_dist, current_weight, evaluated_distances
 
 
@@ -258,7 +231,8 @@ def generate_parametrisations(prev_parametrisations=None,
     else:
         kernel = None
 
-    # The actual (parallel) call to generate_parametrisation()
+    # The actual (parallel) call to generate_parametrisation()  
+
     results = p_umap(
         partial(generate_parametrisation,
                 prev_parametrisations=prev_parametrisations,
