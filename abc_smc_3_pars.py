@@ -263,7 +263,7 @@ def sequential_abc(initial_dist: float = 500.0,
         # Start from scratch.
         pars = None
         weights = None
-        iteration = 0
+        iteration = 0 
     else:
         # A file with the label is used to load the posterior.
         # Always use a numerical label, never 'final'
