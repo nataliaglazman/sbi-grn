@@ -11,58 +11,38 @@ import numpy as np  # type: ignore
 from p_tqdm import p_umap  # type: ignore
 from scipy.stats import multivariate_normal, norm, uniform  # type: ignore
 
-from scoring import score
+from scoring_3_pars import score
 
 # Define list of parameters and their prior limits
 parlist: List[Dict[str, Union[str, float]]] = [{
-    'name': 'log_b1',
-    'lower_limit': -3,
-    'upper_limit': 3
-}, {
     'name': 'log_k1',
-    'lower_limit': -3,
-    'upper_limit': 3
-}, {
-    'name': 'log_b2',
     'lower_limit': -3,
     'upper_limit': 3
 }, {
     'name': 'log_k2',
     'lower_limit': -3,
     'upper_limit': 3
+
+}, {'name': 'log_k3',
+    'lower_limit': -3,
+    'upper_limit': 3
 }]
-#, {
-#    'name': 'log_b3',
-#    'lower_limit': -3,
-#    'upper_limit': 3
-#}, {
-#    'name': 'log_k3',
-#    'lower_limit': -3,
-#    'upper_limit': 3
-#}
 
 def calculate_distance(pars: List[float]) -> float:
     """ The distance function to be optimised. """
     return score_wrapper(*pars)
 
 
-def score_wrapper(log_b1: float,
-                log_k1: float,
-                log_b2: float,
-                     log_k2: float
-                     #log_b3: float, log_k3: float)
- ) -> float:
+def score_wrapper(log_k1: float,
+                log_k2: float, log_k3: float) -> float:
     """Wrapper function repressilator model with 4 parameters, to be called by the optimiser."""
     #pylint: disable=too-many-arguments
 
     # Make a parameter dictionary, converting the log-spaced system params
     par_dict = {
-        "b1": log_b1,
-        "k1": log_k1,
-        "b2": log_b2,
-        "k2": log_k2
-#        "b3": 10**log_b3,
-#        "k3": 10**log_k3,
+        "b1": log_k1,
+        "k1": log_k2,
+        "b2": log_k3
     }
 
     # Call the actual scoring function
@@ -72,7 +52,7 @@ def score_wrapper(log_b1: float,
 ################################################################################
 
 
-def make_output_folder(name: str = "smc") -> None:
+def make_output_folder(name: str = "smc_3_pars") -> None:
     """Make sure the output folder exists, else make it."""
     if not os.path.isdir(name):
         os.mkdir(name)
@@ -214,7 +194,7 @@ def generate_parametrisation(processcall: Any = 0,
 
 def generate_parametrisations(prev_parametrisations=None,
                               prev_weights=None,
-                              eps_dist: float = 10000,
+                              eps_dist: float = 100000,
                               n_pars: int = 2000,
                               kernel_factor: float = 1.0):
     """ Call generate_parametrisation() in parallel until n_pars
@@ -263,7 +243,7 @@ def generate_parametrisations(prev_parametrisations=None,
 
 
 def sequential_abc(initial_dist: float = 500.0,
-                   final_dist: float = 100,
+                   final_dist: float = 2,
                    n_pars: int = 1000,
                    prior_label: Optional[int] = None):
     """ The main function. The sequence of acceptance thresholds starts
@@ -283,13 +263,13 @@ def sequential_abc(initial_dist: float = 500.0,
         # Start from scratch.
         pars = None
         weights = None
-        iteration = 0
+        iteration = 0 
     else:
         # A file with the label is used to load the posterior.
         # Always use a numerical label, never 'final'
-        pars = np.loadtxt(f'smc/pars_{prior_label}.out')
-        weights = np.loadtxt(f'smc/weights_{prior_label}.out')
-        accepted_distances = np.loadtxt(f'smc/distances_{prior_label}.out')
+        pars = np.loadtxt(f'smc_3_pars/pars_{prior_label}.out')
+        weights = np.loadtxt(f'smc_3_pars/weights_{prior_label}.out')
+        accepted_distances = np.loadtxt(f'smc_3_pars/distances_{prior_label}.out')
         distance = np.min(accepted_distances) + \
          0.95*(np.median(accepted_distances) - np.min(accepted_distances))  # type: ignore
         iteration = prior_label
@@ -320,9 +300,9 @@ def sequential_abc(initial_dist: float = 500.0,
             label = str(iteration)
 
         # Write results of the current step to HDD
-        np.savetxt(f'smc/pars_{label}.out', pars)  # type: ignore
-        np.savetxt(f'smc/weights_{label}.out', weights)  # type: ignore
-        np.savetxt(f'smc/distances_{label}.out', accepted_distances)
+        np.savetxt(f'smc_2_pars/pars_{label}.out', pars)  # type: ignore
+        np.savetxt(f'smc_2_pars/weights_{label}.out', weights)  # type: ignore
+        np.savetxt(f'smc_2_pars/distances_{label}.out', accepted_distances)
         
         # Check for convergence, defined as the proposed distance being
         # smaller than the desired final distance.

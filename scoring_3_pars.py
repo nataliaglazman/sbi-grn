@@ -19,7 +19,7 @@ def score(par) -> float:
     new_pars = np.array(list(par.values()))
     true_params = np.array([
     0, 0,  # first set of odes
-    0, 0 # second set of odes
+    0 # second set of odes
 #    0, 0  # third set of odes
 ])
     num_timesteps = 100  # Number of time steps for simulation
@@ -41,11 +41,11 @@ def score(par) -> float:
 def model(variables, t, params):
 
     m1, p1, m2, p2, m3, p3 = variables
-    b1, k1, b2, k2 = params
-# b2,k2,b3,k3
+    b1, k1, b2 = params
+
     dm1dt = -m1 + (10 ** 3 / (1 + (10 ** k1 * p2)**2)) + 1
     dp1dt = -10 ** b1 * (p1 - m1)    
-    dm2dt = -m2 + (10 ** 3 / (1 + (10 ** k2 * p3)**2)) + 1
+    dm2dt = -m2 + (10 ** 3 / (1 + (10 ** 0 * p3)**2)) + 1
     dp2dt = -10 ** b2 * (p2 - m2)    
     dm3dt = -m3 + (10 ** 3 / (1 + (10 ** 0 * p1)**2)) + 1
     dp3dt = -10 ** 0 * (p3 - m3)    
