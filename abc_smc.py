@@ -22,17 +22,16 @@ parlist: List[Dict[str, Union[str, float]]] = [{
     'name': 'log_k1',
     'lower_limit': -3,
     'upper_limit': 3
+}, {
+    'name': 'log_b2',
+    'lower_limit': -3,
+    'upper_limit': 3
+}, {
+    'name': 'log_k2',
+    'lower_limit': -3,
+    'upper_limit': 3
 }]
-
 #, {
-#    'name': 'log_b2',
-#    'lower_limit': -3,
-#    'upper_limit': 3
-#}, {
-#    'name': 'log_k2',
-#    'lower_limit': -3,
-#    'upper_limit': 3
-#}, {
 #    'name': 'log_b3',
 #    'lower_limit': -3,
 #    'upper_limit': 3
@@ -48,9 +47,9 @@ def calculate_distance(pars: List[float]) -> float:
 
 
 def score_wrapper(log_b1: float,
-                     log_k1: float
-                     #, log_b2: float,
-                     #log_k2: float,
+                log_k1: float,
+                log_b2: float,
+                     log_k2: float
                      #log_b3: float, log_k3: float)
  ) -> float:
     """Wrapper function repressilator model with 4 parameters, to be called by the optimiser."""
@@ -58,10 +57,10 @@ def score_wrapper(log_b1: float,
 
     # Make a parameter dictionary, converting the log-spaced system params
     par_dict = {
-        "b1": 10**log_b1,
-        "k1": 10**log_k1
-#        "b2": 10**log_b2,
-#        "k2": 10**log_k2,
+        "b1": log_b1,
+        "k1": log_k1,
+        "b2": log_b2,
+        "k2": log_k2
 #        "b3": 10**log_b3,
 #        "k3": 10**log_k3,
     }
@@ -263,8 +262,8 @@ def generate_parametrisations(prev_parametrisations=None,
     return new_parametrisations, new_weights, accepted_distances, acceptance_rate
 
 
-def sequential_abc(initial_dist: float = 10.0,
-                   final_dist: float = 0.5,
+def sequential_abc(initial_dist: float = 500.0,
+                   final_dist: float = 100,
                    n_pars: int = 1000,
                    prior_label: Optional[int] = None):
     """ The main function. The sequence of acceptance thresholds starts

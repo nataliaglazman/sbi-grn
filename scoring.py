@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import subprocess
+import math
 
 import ast
 import matplotlib.pyplot as plt
@@ -17,8 +18,8 @@ def score(par) -> float:
     """ Score a parametrisation, specified by a parameter dict"""
     new_pars = np.array(list(par.values()))
     true_params = np.array([
-    0, 0  # first set of odes
-#    0, 0, # second set of odes
+    0, 0,  # first set of odes
+    0, 0 # second set of odes
 #    0, 0  # third set of odes
 ])
     num_timesteps = 100  # Number of time steps for simulation
@@ -29,7 +30,10 @@ def score(par) -> float:
     new_data = solve_ode(new_pars, t)
     
     distance = euclidean_distance_multiple_trajectories(true_data, new_data)
-    print(distance)
+
+    if math.isnan(distance):
+        print(new_pars)
+
     return distance
 
 
@@ -37,13 +41,13 @@ def score(par) -> float:
 def model(variables, t, params):
 
     m1, p1, m2, p2, m3, p3 = variables
-    b1, k1 = params
+    b1, k1, b2, k2 = params
 # b2,k2,b3,k3
-    dm1dt = -m1 + (10 ** 3 / (1 + (10 ** k1 * p2)**2)) + 10 ** 0
+    dm1dt = -m1 + (10 ** 3 / (1 + (10 ** k1 * p2)**2)) + 1
     dp1dt = -10 ** b1 * (p1 - m1)    
-    dm2dt = -m2 + (10 ** 3 / (1 + (10 ** 0 * p3)**2)) + 10 ** 0
-    dp2dt = -10 ** 0 * (p2 - m2)    
-    dm3dt = -m3 + (10 ** 3 / (1 + (10 ** 0 * p1)**2)) + 10 ** 0
+    dm2dt = -m2 + (10 ** 3 / (1 + (10 ** k2 * p3)**2)) + 1
+    dp2dt = -10 ** b2 * (p2 - m2)    
+    dm3dt = -m3 + (10 ** 3 / (1 + (10 ** 0 * p1)**2)) + 1
     dp3dt = -10 ** 0 * (p3 - m3)    
     return [dm1dt, dp1dt, dm2dt, dp2dt, dm3dt, dp3dt]
 
@@ -81,4 +85,5 @@ def euclidean_distance_multiple_trajectories(truth, simulation):
     # Average the distances over all trajectories
     average_distance = total_distance / num_trajectories
 
-    return euclidean_distance
+    return average_distance
+
