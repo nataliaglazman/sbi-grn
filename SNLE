@@ -11,6 +11,7 @@ from sbi import analysis as analysis
 
 #####################################################################################################################
 
+params_to_be_inferred = ["k1" , "k2"] # corresponds to theta in the repressilator function below
 true_params = 0, 0       # if this changes, model must also be adjusted. To change the number of parameters this runs for, change the list of true parameters, the "theta=" list in the repressilator function as well as the odes themselves.
 prior_min = -3           # same for all parameters
 prior_max = 3            # same for all parameters
@@ -69,4 +70,4 @@ posterior_samples = posterior.sample((500,), x=x_o)
 # Plot posteriors
 _ = analysis.pairplot(posterior_samples, limits=[[prior_min, prior_max],
                                                  [prior_min, prior_max],
-                                                 [prior_min, prior_max]], figsize=(8, 8))
+                                                 [prior_min, prior_max]], figsize=(8, 8), , labels = params_to_be_inferred)
