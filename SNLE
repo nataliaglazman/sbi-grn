@@ -1,0 +1,72 @@
+# pip install sbi tensor torch
+
+import torch
+import sbi
+import numpy as np
+from scipy.integrate import odeint
+
+from sbi.inference import SNLE, prepare_for_sbi, simulate_for_sbi
+from sbi import utils as utils
+from sbi import analysis as analysis
+
+#####################################################################################################################
+
+true_params = 0, 0       # if this changes, model must also be adjusted. To change the number of parameters this runs for, change the list of true parameters, the "theta=" list in the repressilator function as well as the odes themselves.
+prior_min = -3           # same for all parameters
+prior_max = 3            # same for all parameters
+num_timesteps = 100
+num_rounds = 2          # how many rounds of SNLE (5-10 is good)
+num_simulations = 500   # how many simulations in each round
+
+#####################################################################################################################
+
+t = np.linspace(0, 100, num_timesteps)
+
+def my_simulator(theta):
+    def repressilator(variables, t, theta):
+        m1, p1, m2, p2, m3, p3 = variables
+        k1, k2 = theta
+
+        return [-m1 + (10 ** 3 / (1 + (10 ** k1 * p2) ** 2)) + 10 ** 0, #return the results if the six odes
+                -10 ** 0 * (p1 - m1),
+                -m2 + (10 ** 3 / (1 + (10 ** k2 * p3) ** 2)) + 10 ** 0,
+                -10 ** 0 * (p2 - m2),
+                -m3 + (10 ** 3 / (1 + (10 ** 0 * p1) ** 2)) + 10 ** 0,
+                -10 ** 0 * (p3 - m3)]
+
+    def solve_ode(theta, t):
+        initial_conditions = np.array([0, 2, 0, 1, 0, 3], dtype=np.float32)
+        solution = odeint(repressilator, initial_conditions, t, args=(theta,))
+        return torch.tensor(solution, dtype=torch.float32).flatten()  # Flatten tensor to size [600]
+    
+    return solve_ode(theta, t)
+
+x_o = my_simulator(true_params) # Generate observations,with data from 100 timepoints for each of 6 variables
+                                # concatenated into one tensor (100*6=600)
+
+#####################################################################################################################
+
+num_dim = len(true_params)
+prior = utils.BoxUniform(low=prior_min * torch.ones(num_dim), high=prior_max * torch.ones(num_dim))
+simulator, prior = prepare_for_sbi(my_simulator, prior)
+
+inference = SNLE(prior)  # Initialise inference
+posteriors = []          # Empty list to contain posterior after each SNLE round
+proposal = prior         # For the first round proposal = prior, then updated (sequentiality)
+
+for _ in range(num_rounds):
+    theta, x = simulate_for_sbi(simulator, proposal, num_simulations = num_simulations)
+    # sample theta from proposal (=posterior of previus round) using MCMC, and use to simulate data x
+    density_estimator = inference.append_simulations(theta, x).train()
+    # train neural net using (theta, x) sets
+    posterior = inference.build_posterior(density_estimator)
+    # generate posterior (proportional to prior*neural estimator)
+    posteriors.append(posterior)
+    proposal = posterior.set_default_x(x_o) # set posterior = proposal for next round
+
+posterior_samples = posterior.sample((500,), x=x_o)
+
+# Plot posteriors
+_ = analysis.pairplot(posterior_samples, limits=[[prior_min, prior_max],
+                                                 [prior_min, prior_max],
+                                                 [prior_min, prior_max]], figsize=(8, 8))
