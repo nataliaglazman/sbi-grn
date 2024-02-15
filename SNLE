@@ -11,6 +11,11 @@ from sbi import analysis as analysis
 
 #####################################################################################################################
 
+# To run for more parameters, we must 1) add the parameter in the params_to_be_inferred list e.g. params_to_be_inferred = ["k1" , "k2", "k3"], 
+#                                     2) add the true value of the new parameter in true_params e.g. true_params = 0, 0, 0
+#                                     3) add the parameter in theta in the repressilator model e.g. k1, k2, k3 = theta
+#                                     4) ensure the repressilator output accounts for the new parameter e.g. -m3 + (10 ** 3 / (1 + (10 ** k3 * p1) ** 2)) + 10 ** 0
+
 params_to_be_inferred = ["k1" , "k2"] # corresponds to theta in the repressilator function below
 true_params = 0, 0       # if this changes, model must also be adjusted. To change the number of parameters this runs for, change the list of true parameters, the "theta=" list in the repressilator function as well as the odes themselves.
 prior_min = -3           # same for all parameters
