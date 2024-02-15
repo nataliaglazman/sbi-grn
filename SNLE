@@ -68,4 +68,4 @@ for _ in range(num_rounds):
 posterior_samples = posterior.sample((500,), x=x_o)
 
 # Plot posteriors
-_ = analysis.pairplot(posterior_samples, limits=[[prior_min, prior_max]] * num_dim, figsize=(8, 8), , labels = params_to_be_inferred)
+_ = analysis.pairplot(posterior_samples, limits=[[prior_min, prior_max]] * num_dim, figsize=(8, 8), labels = params_to_be_inferred)
