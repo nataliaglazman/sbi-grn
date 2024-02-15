@@ -4,6 +4,7 @@ import torch
 import sbi
 import numpy as np
 from scipy.integrate import odeint
+import matplotlib.pyplot as plt
 
 from sbi.inference import SNLE, prepare_for_sbi, simulate_for_sbi
 from sbi import utils as utils
@@ -75,7 +76,31 @@ for _ in range(num_rounds):
     posteriors.append(posterior)
     proposal = posterior.set_default_x(x_o) # set posterior = proposal for next round
 
-posterior_samples = posterior.sample((500,), x=x_o)
+posterior_samples = posterior.sample((500,), x=x_o) # sample to plot the posteriors
 
 # Plot posteriors
 _ = analysis.pairplot(posterior_samples, limits=[[prior_min, prior_max]] * num_dim, figsize=(8, 8), labels = params_to_be_inferred)
+
+##################################### PLOT TRAJECTORIES ##############################################################
+
+# function to plot trajectories for each variable
+def plot_variables(ax, true_traj, posterior_samples, variables_idx, variables, color_true='blue', color_sim='grey'):
+    ax.plot(t, true_traj[:, variables_idx], linestyle='-', color=color_true, label='True trajectory')
+    plot_trajectories(ax, theta=posterior_samples, linestyle='--', color=color_sim)
+    ax.set_xlabel('t')
+    ax.set_ylabel(variables[variables_idx])
+    ax.legend()
+
+variables = ["m1", "p1", "m2", "p2", "m3", "p3"]
+
+posterior_samples = posterior.sample((50,), x=x_o) # sample from posterior to plot trajectories (50 not 500 to avoid confluence)
+
+fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+variables_indices = range(6)
+
+for idx, ax in enumerate(axes.flat):
+    true_traj = x_o.reshape(-1, 6) # get the tensor back to unflattened shape
+    plot_species(ax, true_traj, posterior_samples, variables_idx=idx, variables=variables)
+
+plt.tight_layout()
+plt.show()
