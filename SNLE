@@ -100,7 +100,7 @@ variables_indices = range(6)
 
 for idx, ax in enumerate(axes.flat):
     true_traj = x_o.reshape(-1, 6) # get the tensor back to unflattened shape
-    plot_species(ax, true_traj, posterior_samples, variables_idx=idx, variables=variables)
+    plot_variables(ax, true_traj, posterior_samples, variables_idx=idx, variables=variables)
 
 plt.tight_layout()
 plt.show()
