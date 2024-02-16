@@ -83,7 +83,14 @@ _ = analysis.pairplot(posterior_samples, limits=[[prior_min, prior_max]] * num_d
 
 ##################################### PLOT TRAJECTORIES ##############################################################
 
-# function to plot trajectories for each variable
+# Define a function to plot trajectories
+def plot_trajectories(ax, theta, linestyle='-', color='grey'):
+    for param_set in theta:
+        traj = my_simulator(param_set).reshape(-1, 6)
+        for i in range(6):
+            ax.plot(t, traj[:, i], linestyle, color=color, alpha=0.1)
+
+# Define a function to plot trajectories for each variable
 def plot_variables(ax, true_traj, posterior_samples, variables_idx, variables, color_true='blue', color_sim='grey'):
     ax.plot(t, true_traj[:, variables_idx], linestyle='-', color=color_true, label='True trajectory')
     plot_trajectories(ax, theta=posterior_samples, linestyle='--', color=color_sim)
@@ -91,15 +98,17 @@ def plot_variables(ax, true_traj, posterior_samples, variables_idx, variables, c
     ax.set_ylabel(variables[variables_idx])
     ax.legend()
 
+# List of variables
 variables = ["m1", "p1", "m2", "p2", "m3", "p3"]
 
-posterior_samples = posterior.sample((50,), x=x_o) # sample from posterior to plot trajectories (50 not 500 to avoid confluence)
+# Draw random samples from the final posterior
+posterior_samples = posterior.sample((50,), x=x_o)  # Adjust the number of samples as needed
 
+# Plot trajectories for each variable in a 2 by 3 layout
 fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-variables_indices = range(6)
 
 for idx, ax in enumerate(axes.flat):
-    true_traj = x_o.reshape(-1, 6) # get the tensor back to unflattened shape
+    true_traj = x_o.reshape(-1, 6)  # Reshape flattened observation back to the original shape
     plot_variables(ax, true_traj, posterior_samples, variables_idx=idx, variables=variables)
 
 plt.tight_layout()
