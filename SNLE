@@ -22,8 +22,8 @@ from sbi import analysis as analysis
 
 #####################################################################################################################
 
-params_to_be_inferred = ["k1" , "k2"] # corresponds to theta in the repressilator function below
-true_params = 0, 0       # if this changes, model must also be adjusted. To change the number of parameters this runs for, change the list of true parameters, the "theta=" list in the repressilator function as well as the odes themselves.
+params_to_be_inferred = ["k1" , "k2"]
+true_params = 0, 0
 prior_min = -3           # same for all parameters
 prior_max = 3            # same for all parameters
 num_timesteps = 100
@@ -63,7 +63,7 @@ prior = utils.BoxUniform(low=prior_min * torch.ones(num_dim), high=prior_max * t
 simulator, prior = prepare_for_sbi(my_simulator, prior)
 
 inference = SNLE(prior)  # Initialise inference
-posteriors = []          # Empty list to contain posterior after each SNLE round
+posteriors = []          # Empty list to contain posterior after each round
 proposal = prior         # For the first round proposal = prior, then updated (sequentiality)
 
 for _ in range(num_rounds):
@@ -83,14 +83,12 @@ _ = analysis.pairplot(posterior_samples, limits=[[prior_min, prior_max]] * num_d
 
 ##################################### PLOT TRAJECTORIES ##############################################################
 
-# Define a function to plot trajectories
 def plot_trajectories(ax, theta, linestyle='-', color='grey'):
     for param_set in theta:
         traj = my_simulator(param_set).reshape(-1, 6)
         for i in range(6):
             ax.plot(t, traj[:, i], linestyle, color=color, alpha=0.1)
 
-# Define a function to plot trajectories for each variable
 def plot_variables(ax, true_traj, posterior_samples, variables_idx, variables, color_true='blue', color_sim='grey'):
     ax.plot(t, true_traj[:, variables_idx], linestyle='-', color=color_true, label='True trajectory')
     plot_trajectories(ax, theta=posterior_samples, linestyle='--', color=color_sim)
@@ -98,13 +96,12 @@ def plot_variables(ax, true_traj, posterior_samples, variables_idx, variables, c
     ax.set_ylabel(variables[variables_idx])
     ax.legend()
 
-# List of variables
 variables = ["m1", "p1", "m2", "p2", "m3", "p3"]
 
-# Draw random samples from the final posterior
-posterior_samples = posterior.sample((50,), x=x_o)  # Adjust the number of samples as needed
+# Sample final posterior
+posterior_samples = posterior.sample((50,), x=x_o)  # Adjust the number of samples as needed (not 500 to avoid confluene)
 
-# Plot trajectories for each variable in a 2 by 3 layout
+# Plot trajectories
 fig, axes = plt.subplots(2, 3, figsize=(15, 10))
 
 for idx, ax in enumerate(axes.flat):
