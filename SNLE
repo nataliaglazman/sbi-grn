@@ -67,6 +67,7 @@ posteriors = []          # Empty list to contain posterior after each round
 proposal = prior         # For the first round proposal = prior, then updated (sequentiality)
 
 for _ in range(num_rounds):
+    print(f"Round {_+1}")
     theta, x = simulate_for_sbi(simulator, proposal, num_simulations = num_simulations)
     # sample theta from proposal (=posterior of previus round) using MCMC, and use to simulate data x
     density_estimator = inference.append_simulations(theta, x).train()
