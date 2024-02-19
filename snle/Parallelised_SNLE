@@ -111,6 +111,7 @@ import matplotlib.pyplot as plt
 import os
 
 from sbi.inference import SNLE, prepare_for_sbi
+# No longer importing simulate_for_sbi from the package, we use the one defined above
 from sbi import utils as utils
 from sbi import analysis as analysis
 
@@ -160,7 +161,7 @@ def my_simulator(theta):
         m1, p1, m2, p2, m3, p3 = variables
         a1, k1, a2, k2, a3, k3 = theta
 
-        return [-m1 + (10 ** a1 / (1 + (10 ** k1 * p2) ** 2)) + 10 ** 0, #return the results if the six odes
+        return [-m1 + (10 ** a1 / (1 + (10 ** k1 * p2) ** 2)) + 10 ** 0,
         -10 ** 0 * (p1 - m1),
         -m2 + (10 ** a2 / (1 + (10 ** k2 * p3) ** 2)) + 10 ** 0,
         -10 ** 0 * (p2 - m2),
