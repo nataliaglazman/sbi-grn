@@ -133,14 +133,15 @@ prior_min = -1                        # same for all parameters
 prior_max = 5                         # same for all parameters
 num_timesteps = 100
 num_rounds = 2                        # how many rounds of SNLE
-num_simulations = 50                  # in each round
+num_simulations = 8000                # in each round
 
 # To simulate in batches, simulation_batch_size must not be None and simulation_batch_size < num_simulations
 
-simulation_batch_size = 10
+simulation_batch_size = 1000
 
 # To parallelise, set number of CPUs to be used. Note: parallelise anything that has num_rounds>2 and/or num_simulations>50
 # to see total available CPUs: print(os.cpu_count())
+# To ensure all desired cores (CPUs_to_use) are being used, it is a good idea to have CPUs_to_use = num_simulations / simulation_batch_size
 
 CPUs_to_use = 8
 
