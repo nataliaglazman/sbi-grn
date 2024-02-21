@@ -1,0 +1,231 @@
+# TO PARALLELISE SIMULATIONS + SAMPLE GENERATION
+# pip install sbi torch joblib numpy
+
+import joblib
+import contextlib
+import random
+import torch
+import sbi
+import numpy as np
+from scipy.integrate import odeint
+import matplotlib.pyplot as plt
+import os
+
+from torch import Tensor, split, randint, cat
+from typing import Any, Callable, Optional, Tuple, Union
+from joblib import Parallel, delayed
+from tqdm import tqdm
+from tqdm.auto import tqdm
+
+# from torch.distributions import Distribution, constraints
+# from multiprocessing import Pool
+# from typing import Sequence, Dict
+
+########################################################################################
+
+def seed_all_backends(seed: Optional[Union[int, Tensor]] = None) -> None:
+    if seed is None:
+        seed = int(torch.randint(1_000_000, size=(1,)))
+    else:
+        # Cast Tensor to int (required by math.random since Python 3.11)
+        seed = int(seed)
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True # type: ignore
+    torch.backends.cudnn.benchmark = False # type: ignore
+
+def simulator_seeded(simulator: Callable, theta: Tensor, seed: int) -> Tensor:
+    import torch
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(seed)
+        return simulator(theta)
+
+def simulate_in_batches(simulator: Callable, theta: Tensor, sim_batch_size: int = 1, num_workers: int = 1, seed: Optional[int] = None, 
+                        show_progress_bars: bool = True, ) -> Tensor:
+
+    num_sims, *_ = theta.shape
+    seed_all_backends(seed)
+
+    if num_sims == 0:
+        x = torch.tensor([])
+    elif sim_batch_size is not None and sim_batch_size < num_sims:
+        batches = split(theta, sim_batch_size, dim=0)
+
+        if num_workers != 1:
+            batch_seeds = randint(high=1_000_000, size=(len(batches),))
+
+            with tqdm_joblib(tqdm(batches, disable=not show_progress_bars, total = len(batches),
+                                  desc=f"Running {num_sims} simulations in {len(batches)} batches ({num_workers + 1 + os.cpu_count()} cores)",
+                                 )) as _: simulation_outputs = Parallel(n_jobs=num_workers)(delayed(simulator_seeded)(simulator,batch, batch_seed) for batch, batch_seed in zip(batches, batch_seeds))
+        else:
+            pbar = tqdm(total=num_sims, disable=not show_progress_bars, desc=f"Running {num_sims} simulations.", )
+
+            with pbar:
+                simulation_outputs = []
+                for batch in batches:
+                    simulation_outputs.append(simulator_seeded(simulator, batch, seed))
+                    pbar.update(sim_batch_size)
+
+        x = cat(simulation_outputs, dim=0)
+    else:
+        x = simulator(theta)
+
+    return x
+
+@contextlib.contextmanager
+def tqdm_joblib(tqdm_object):
+    def tqdm_print_progress(self):
+        if self.n_completed_tasks > tqdm_object.n:
+            n_completed = self.n_completed_tasks - tqdm_object.n
+            tqdm_object.update(n=n_completed)
+
+    original_print_progress = joblib.parallel.Parallel.print_progress
+    joblib.parallel.Parallel.print_progress = tqdm_print_progress
+
+    try:
+        yield tqdm_object
+    finally:
+        joblib.parallel.Parallel.print_progress = original_print_progress
+        tqdm_object.close()
+
+def simulate_for_sbi(simulator: Callable, proposal: Any, num_simulations: int, num_workers: int = 1, simulation_batch_size: int = 1, seed: Optional[int] = None,
+                     show_progress_bar: bool = True)-> Tuple[Tensor, Tensor]:
+
+    def sample_from_proposal(simulation_batch_size):
+        return proposal.sample((simulation_batch_size,))
+
+    num_batches = num_simulations // simulation_batch_size
+    if num_batches * simulation_batch_size < num_simulations:
+        num_batches =+ 1
+
+    if num_workers <= -1:
+        with tqdm_joblib(tqdm(disable=not show_progress_bar, total=num_batches,
+                              desc=f"Generating samples ({num_workers + 1 + os.cpu_count()} cores)")) as _:theta_batches = Parallel(n_jobs=num_workers)(delayed(sample_from_proposal)(simulation_batch_size) for _ in range(num_batches))
+    else:
+        print("Sequential sample generation (num_cores=1)...")
+        theta_batches = [sample_from_proposal(simulation_batch_size) for _ in range(num_batches)]
+
+    theta = torch.cat(theta_batches, dim=0)[:num_simulations]
+
+    x = simulate_in_batches(simulator=simulator, theta=theta, sim_batch_size=simulation_batch_size, num_workers=num_workers, seed=seed, show_progress_bars=show_progress_bar)
+
+    return theta, x
+
+#####################################################################################################
+
+from sbi.inference import SNLE, prepare_for_sbi
+from sbi import utils as utils
+from sbi import analysis as analysis
+from sbi.utils.get_nn_models import (likelihood_nn,)
+
+#####################################################################################################################
+
+params_to_be_inferred = ["k1" , "k2"]
+true_params = 0, 0
+prior_min = -3                        # same for all parameters
+prior_max = 3                         # same for all parameters
+num_timesteps = 100
+num_rounds = 10                        # how many rounds of SNLE
+num_simulations = 2400               # in each round
+
+# To simulate in batches, simulation_batch_size must not be None and simulation_batch_size < num_simulations
+simulation_batch_size = 300
+
+# To parallelise, set number of CPUs to be used.
+# Note: parallelise anything that has num_rounds>2 and/or num_simulations>50
+CPUs_to_use = 8
+
+#####################################################################################################################
+
+total_CPUs = os.cpu_count()
+num_workers = CPUs_to_use - total_CPUs -1
+# num_workers = -1 uses all cpus
+# num_workers = -2 uses all cpus but one etc https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html
+
+if CPUs_to_use > total_CPUs:
+    raise ValueError(f"Cannot use more CPUs than are available. Available CPUs: {total_CPUs}")
+
+t = np.linspace(0, 100, num_timesteps)
+
+def my_simulator(theta):
+    def repressilator(variables, t, theta):
+        m1, p1, m2, p2, m3, p3 = variables
+        k1, k2 = theta
+
+        return [-m1 + (10 ** 3 / (1 + (10 ** k1 * p2) ** 2)) + 10 ** 0, #return the results of the six odes
+        -10 ** 0 * (p1 - m1),
+        -m2 + (10 ** 3 / (1 + (10 ** k2 * p3) ** 2)) + 10 ** 0,
+        -10 ** 0 * (p2 - m2),
+        -m3 + (10 ** 3 / (1 + (10 ** 0 * p1) ** 2)) + 10 ** 0,
+        -10 ** 0 * (p3 - m3)]
+
+    def solve_ode(theta, t):
+        initial_conditions = np.array([0, 2, 0, 1, 0, 3], dtype=np.float32)
+        solution = odeint(repressilator, initial_conditions, t, args=(theta,))
+        return torch.tensor(solution, dtype=torch.float32).flatten() # Flatten tensor to size [600]
+    return solve_ode(theta, t)
+
+x_o = my_simulator(true_params) # Generate observations,with data from 100 timepoints for each of 6 variables
+                                # concatenated into one tensor (100*6=600)
+
+#####################################################################################################################
+
+num_dim = len(true_params)
+prior = utils.BoxUniform(low=prior_min * torch.ones(num_dim), high=prior_max * torch.ones(num_dim))
+simulator, prior = prepare_for_sbi(my_simulator, prior)
+
+my_density_estimator = likelihood_nn(model="maf", hidden_features=50, num_transforms=3)
+
+inference = SNLE(prior = prior, density_estimator = my_density_estimator) # Initialise inference
+posteriors = [] # Empty list to contain posterior after each round
+proposal = prior # For the first round proposal = prior, then updated (sequentiality)
+
+for _ in range(num_rounds):
+    print(f"Round{_+1}")
+    theta, x = simulate_for_sbi(simulator, proposal, num_simulations = num_simulations, simulation_batch_size = simulation_batch_size, num_workers=num_workers)
+    density_estimator = inference.append_simulations(theta, x).train()
+    posterior = inference.build_posterior(density_estimator)
+    posteriors.append(posterior)
+    proposal = posterior.set_default_x(x_o)
+    print("\n")
+
+posterior_samples = posterior.sample((500,), x=x_o) # sample to plot the posteriors
+
+# Plot posteriors
+_ = analysis.pairplot(posterior_samples, limits=[[prior_min, prior_max]] * num_dim,
+                      figsize=(8, 8), labels = params_to_be_inferred)
+
+##################################### PLOT TRAJECTORIES #############################################################
+
+def plot_trajectories(ax, theta, linestyle='-', color='grey'):
+    for param_set in theta:
+        traj = my_simulator(param_set).reshape(-1, 6)
+        for i in range(6):
+            ax.plot(t, traj[:, i], linestyle, color=color, alpha=0.1)
+
+def plot_variables(ax, true_traj, posterior_samples, variables_idx, variables, color_true='blue', color_sim='grey'):
+    ax.plot(t, true_traj[:, variables_idx], linestyle='-', color=color_true, label='True trajectory')
+    plot_trajectories(ax, theta=posterior_samples, linestyle='--', color=color_sim)
+    ax.set_xlabel('t')
+    ax.set_ylabel(variables[variables_idx])
+    ax.legend()
+
+variables = ["m1", "p1", "m2", "p2", "m3", "p3"]
+
+# Sample final posterior
+posterior_samples = posterior.sample((50,), x=x_o) # Adjust the number of samples to avoid confluene
+
+# Plot trajectories
+fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+
+for idx, ax in enumerate(axes.flat):
+    true_traj = x_o.reshape(-1, 6) # Reshape flattened observation back to the original shape
+    plot_variables(ax, true_traj, posterior_samples, variables_idx=idx, variables=variables)
+
+plt.tight_layout()
+plt.show()
