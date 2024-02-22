@@ -11,7 +11,7 @@ import numpy as np  # type: ignore
 from p_tqdm import p_umap  # type: ignore
 from scipy.stats import multivariate_normal, norm, uniform  # type: ignore
 
-from scoring_6_pars import score
+from scoring_6_pars_new_model import score
 
 # Define list of parameters and their prior limits
 parlist: List[Dict[str, Union[str, float]]] = [{
@@ -27,17 +27,17 @@ parlist: List[Dict[str, Union[str, float]]] = [{
     'lower_limit': 10,
     'upper_limit': 250
 
-}, {'name': 'log_a1',
-    'lower_limit': 20,
-    'upper_limit': 40
+}, {'name': 'log_g1',
+    'lower_limit': 0,
+    'upper_limit': 5
 
-}, {'name': 'log_a2',
-    'lower_limit': 20,
-    'upper_limit': 40
+}, {'name': 'log_g2',
+    'lower_limit': 0,
+    'upper_limit': 5
 
-}, {'name': 'log_a3',
-    'lower_limit': 20,
-    'upper_limit': 40
+}, {'name': 'log_g3',
+    'lower_limit': 0,
+    'upper_limit': 5
 
 }]
 
@@ -47,18 +47,18 @@ def calculate_distance(pars: List[float]) -> float:
 
 
 def score_wrapper(log_k1: float,
-                log_k2: float, log_k3: float, log_a1: float, log_a2: float, log_a3: float) -> float:
+                log_k2: float, log_k3: float, log_g1: float, log_g2: float, log_g3: float) -> float:
     """Wrapper function repressilator model with 4 parameters, to be called by the optimiser."""
     #pylint: disable=too-many-arguments
 
     # Make a parameter dictionary, converting the log-spaced system params
     par_dict = {
-        "b1": log_k1,
-        "k1": log_k2,
-        "b2": log_k3,
-        "a1": log_a1,
-        "a2": log_a2,
-        "a3": log_a3
+        "k1": log_k1,
+        "k2": log_k2,
+        "k3": log_k3,
+        "g1": log_g1,
+        "g2": log_g2,
+        "g3": log_g3
     }
 
     # Call the actual scoring function
@@ -209,7 +209,7 @@ def generate_parametrisation(processcall: Any = 0,
 def generate_parametrisations(prev_parametrisations=None,
                               prev_weights=None,
                               eps_dist: float = 10000,
-                              n_pars: int = 500,
+                              n_pars: int = 2000,
                               kernel_factor: float = 1.0):
     """ Call generate_parametrisation() in parallel until n_pars
     parametrisations have been accepted."""
@@ -257,7 +257,7 @@ def generate_parametrisations(prev_parametrisations=None,
 
 def sequential_abc(initial_dist: float = 700.0,
                    final_dist: float = 5,
-                   n_pars: int = 500,
+                   n_pars: int = 1000,
                    prior_label: Optional[int] = None):
     """ The main function. The sequence of acceptance thresholds starts
     with initial_dist and keeps on reducing until a final threshold

@@ -18,7 +18,7 @@ def score(par) -> float:
     """ Score a parametrisation, specified by a parameter dict"""
     new_pars = np.array(list(par.values()))
     true_params = np.array([
-    246.96291990024542, 246.96291990024542, 246.96291990024542, 24.78485282457379, 24.78485282457379, 24.78485282457379 # second set of odes
+    104.02468968707345, 104.02468968707345, 104.02468968707345, 1.3515127830534523,1.3515127830534523,1.3515127830534523 # second set of odes
 #    0, 0  # third set of odes
 ])
     num_timesteps = 100  # Number of time steps for simulation
@@ -40,13 +40,13 @@ def score(par) -> float:
 def model(variables, t, params):
 
     m1, p1, m2, p2, m3, p3 = variables
-    k1, k2, k3, a1, a2, a3 = params
-    g1=g2=g3  = 0.024884149937163258
-    n1=n2=n3 = 5
-    b1=b2=b3 = 33.82307682700831
-    dm1=dm2=dm3 = 1.143402097500176
-    dp1=dp2=dp3 = 0.7833664565550977
-
+    k1, k2, k3, g1, g2, g3 = params
+    a1=a2=a3 =  36.81797811695671
+    n1=n2=n3 = 3
+    b1=b2=b3 = 43.43698380995929
+    dm1=dm2=dm3 = 2.2491024418676977
+    dp1=dp2=dp3 = 0.7747671591505249
+    
     dm1dt = -dm1*m1 + (a1 / (1 + ((1/k1) * p2)**n1)) + g1
     dp1dt = (b1*m1) - (dp1*p1)
     dm2dt = -dm2*m2 + (a2 / (1 + ((1/k2) * p3)**n2)) + g2

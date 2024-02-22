@@ -18,9 +18,8 @@ def score(par) -> float:
     """ Score a parametrisation, specified by a parameter dict"""
     new_pars = np.array(list(par.values()))
     true_params = np.array([
-    -1.0, -1.0,  # first set of odes
-    -1.0, 3.0,
-      3.0, 3.0  # third set of odes
+    104.02468968707345, 104.02468968707345, 104.02468968707345, 1.3515127830534523,1.3515127830534523,1.3515127830534523,36.81797811695671,36.81797811695671,36.81797811695671 # second set of odes
+#    0, 0  # third set of odes
 ])
     num_timesteps = 100  # Number of time steps for simulation
 
@@ -41,14 +40,18 @@ def score(par) -> float:
 def model(variables, t, params):
 
     m1, p1, m2, p2, m3, p3 = variables
-    k1, k2, k3, a1, a2, a3 = params
-
-    dm1dt = -m1 + (10.0 ** a1 / (1 + (10.0 ** k1 * p2)**2.0)) + 1.0
-    dp1dt = -10.0 ** 0.0 * (p1 - m1)    
-    dm2dt = -m2 + (10.0 ** a2 / (1.0 + (10.0 ** k2 * p3)**2.0)) + 1.0
-    dp2dt = -10.0 ** 0.0 * (p2 - m2)    
-    dm3dt = -m3 + (10.0 ** a3 / (1.0 + (10.0 ** k3 * p1)**2.0)) + 1.0
-    dp3dt = -10.0 ** 0.0 * (p3 - m3)    
+    k1, k2, k3, g1, g2, g3,a1,a2,a3 = params
+    n1=n2=n3 = 3
+    b1=b2=b3 = 43.43698380995929
+    dm1=dm2=dm3 = 2.2491024418676977
+    dp1=dp2=dp3 = 0.7747671591505249
+    
+    dm1dt = -dm1*m1 + (a1 / (1 + ((1/k1) * p2)**n1)) + g1
+    dp1dt = (b1*m1) - (dp1*p1)
+    dm2dt = -dm2*m2 + (a2 / (1 + ((1/k2) * p3)**n2)) + g2
+    dp2dt = (b2*m2) - (dp2*p2)
+    dm3dt = -dm3*m3 + (a3 / (1 + ((1/k3) * p1)**n3)) + g3
+    dp3dt = (b3*m3)-(dp3*p3)
     
     return [dm1dt, dp1dt, dm2dt, dp2dt, dm3dt, dp3dt]
 
@@ -56,23 +59,6 @@ def solve_ode(params, t):
     initial_conditions = np.array([0.0, 2.0, 0.0, 1.0, 0.0, 3.0])
     solution = odeint(model, initial_conditions, t, args=(params,))
     return solution
-
-#from julia import Julia
-#from julia import Main
-
-# Start Julia
-#jl = Julia(compiled_modules=False)
-
-# Load and execute the Julia script
-#jl.include("julia_solver.jl")
-
-# Example usage
-#params_array = [0]  # Example array of parameter sets
-#output_folder = "output_trajectories"  # Specify the output folder
-
-# Call the Julia function from Python
-#Main.solve_and_save_trajectories(params_array, output_folder)
-
 
 
 def euclidean_distance_multiple_trajectories(truth, simulation):
