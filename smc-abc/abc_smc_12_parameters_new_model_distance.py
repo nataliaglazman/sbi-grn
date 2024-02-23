@@ -11,34 +11,57 @@ import numpy as np  # type: ignore
 from p_tqdm import p_umap  # type: ignore
 from scipy.stats import multivariate_normal, norm, uniform  # type: ignore
 
-from scoring_6_pars import score
+from scoring_12_pars_new_model_distance import score
 
 # Define list of parameters and their prior limits
 parlist: List[Dict[str, Union[str, float]]] = [{
     'name': 'log_k1',
-    'lower_limit': -3,
-    'upper_limit': 3
+    'lower_limit': 10,
+    'upper_limit': 250
 }, {
     'name': 'log_k2',
-    'lower_limit': -3,
-    'upper_limit': 3
+    'lower_limit': 10,
+    'upper_limit': 250
 
 }, {'name': 'log_k3',
-    'lower_limit': -3,
-    'upper_limit': 3
+    'lower_limit': 10,
+    'upper_limit': 250
+
+}, {'name': 'log_g1',
+    'lower_limit': 0,
+    'upper_limit': 5
+
+}, {'name': 'log_g2',
+    'lower_limit': 0,
+    'upper_limit': 5
+
+}, {'name': 'log_g3',
+    'lower_limit': 0,
+    'upper_limit': 5
 
 }, {'name': 'log_a1',
-    'lower_limit': -1,
-    'upper_limit': 5
+    'lower_limit': 20,
+    'upper_limit': 40
 
 }, {'name': 'log_a2',
-    'lower_limit': -1,
-    'upper_limit': 5
+    'lower_limit': 20,
+    'upper_limit': 40
 
 }, {'name': 'log_a3',
-    'lower_limit': -1,
+    'lower_limit': 20,
+    'upper_limit': 40
+
+}, {'name': 'log_n1',
+    'lower_limit': 1,
     'upper_limit': 5
 
+}, {'name': 'log_n2',
+    'lower_limit': 1,
+    'upper_limit': 5
+
+}, {'name': 'log_n3',
+    'lower_limit': 1,
+    'upper_limit': 5
 }]
 
 def calculate_distance(pars: List[float]) -> float:
@@ -47,18 +70,24 @@ def calculate_distance(pars: List[float]) -> float:
 
 
 def score_wrapper(log_k1: float,
-                log_k2: float, log_k3: float, log_a1: float, log_a2: float, log_a3: float) -> float:
+                log_k2: float, log_k3: float, log_g1: float, log_g2: float, log_g3: float, log_a1: float, log_a2: float, log_a3: float, log_n1: float, log_n2: float, log_n3: float) -> float:
     """Wrapper function repressilator model with 4 parameters, to be called by the optimiser."""
     #pylint: disable=too-many-arguments
 
     # Make a parameter dictionary, converting the log-spaced system params
     par_dict = {
-        "b1": log_k1,
-        "k1": log_k2,
-        "b2": log_k3,
+        "k1": log_k1,
+        "k2": log_k2,
+        "k3": log_k3,
+        "g1": log_g1,
+        "g2": log_g2,
+        "g3": log_g3,
         "a1": log_a1,
         "a2": log_a2,
-        "a3": log_a3
+        "a3": log_a3,
+        "n1": log_n1,
+        "n2": log_n2,
+        "n3": log_n3
     }
 
     # Call the actual scoring function
@@ -68,7 +97,7 @@ def score_wrapper(log_k1: float,
 ################################################################################
 
 
-def make_output_folder(name: str = "smc_vary_pars") -> None:
+def make_output_folder(name: str = "smc_12_pars_new_model") -> None:
     """Make sure the output folder exists, else make it."""
     if not os.path.isdir(name):
         os.mkdir(name)
@@ -209,7 +238,7 @@ def generate_parametrisation(processcall: Any = 0,
 def generate_parametrisations(prev_parametrisations=None,
                               prev_weights=None,
                               eps_dist: float = 10000,
-                              n_pars: int = 300,
+                              n_pars: int = 2000,
                               kernel_factor: float = 1.0):
     """ Call generate_parametrisation() in parallel until n_pars
     parametrisations have been accepted."""
@@ -219,7 +248,7 @@ def generate_parametrisations(prev_parametrisations=None,
     # This is used to judge the distance of a new parametrisation from
     # the previously found parametrisations see generation_parametrisation()
     if prev_parametrisations is not None:
-        previous_covar = 2 * kernel_factor * np.cov(
+        previous_covar = 0.2 * kernel_factor * np.cov(
             np.array(prev_parametrisations).T)
         kernel = multivariate_normal(cov=previous_covar)
     else:
@@ -255,9 +284,9 @@ def generate_parametrisations(prev_parametrisations=None,
     return new_parametrisations, new_weights, accepted_distances, acceptance_rate
 
 
-def sequential_abc(initial_dist: float = 200.0,
+def sequential_abc(initial_dist: float = 700.0,
                    final_dist: float = 5,
-                   n_pars: int = 300,
+                   n_pars: int = 1000,
                    prior_label: Optional[int] = None):
     """ The main function. The sequence of acceptance thresholds starts
     with initial_dist and keeps on reducing until a final threshold
@@ -280,9 +309,9 @@ def sequential_abc(initial_dist: float = 200.0,
     else:
         # A file with the label is used to load the posterior.
         # Always use a numerical label, never 'final'
-        pars = np.loadtxt(f'smc_vary_pars/pars_{prior_label}.out')
-        weights = np.loadtxt(f'smc_vary_pars/weights_{prior_label}.out')
-        accepted_distances = np.loadtxt(f'smc_vary_pars/distances_{prior_label}.out')
+        pars = np.loadtxt(f'smc_12_pars_new_model/pars_{prior_label}.out')
+        weights = np.loadtxt(f'smc_12_pars_new_model/weights_{prior_label}.out')
+        accepted_distances = np.loadtxt(f'smc_12_pars_new_model/distances_{prior_label}.out')
         distance = np.min(accepted_distances) + \
          0.95*(np.median(accepted_distances) - np.min(accepted_distances))  # type: ignore
         iteration = prior_label
@@ -313,9 +342,9 @@ def sequential_abc(initial_dist: float = 200.0,
             label = str(iteration)
 
         # Write results of the current step to HDD
-        np.savetxt(f'smc_vary_pars/pars_{label}.out', pars)  # type: ignore
-        np.savetxt(f'smc_vary_pars/weights_{label}.out', weights)  # type: ignore
-        np.savetxt(f'smc_vary_pars/distances_{label}.out', accepted_distances)
+        np.savetxt(f'smc_12_pars_new_model/pars_{label}.out', pars)  # type: ignore
+        np.savetxt(f'smc_12_pars_new_model/weights_{label}.out', weights)  # type: ignore
+        np.savetxt(f'smc_12_pars_new_model/distances_{label}.out', accepted_distances)
         
         # Check for convergence, defined as the proposed distance being
         # smaller than the desired final distance.

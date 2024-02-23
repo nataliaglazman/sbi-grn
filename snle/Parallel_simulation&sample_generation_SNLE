@@ -93,25 +93,42 @@ def tqdm_joblib(tqdm_object):
         joblib.parallel.Parallel.print_progress = original_print_progress
         tqdm_object.close()
 
+def sampler_seeded(proposal, batch, seed: int) -> Tensor:
+    import torch
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(seed)
+        return proposal.sample((len(batch),))
+
+def sample_in_batches(proposal, num_simulations, sim_batch_size: int = 1, num_workers: int = 1, seed: Optional[int] = None, show_progress_bars: bool = True):
+    seed_all_backends(seed)
+
+    simulation_index = torch.arange(1, num_simulations + 1)
+    batches = split(simulation_index, sim_batch_size, dim=0)
+
+    if num_workers <= -1:
+        batch_seeds = randint(high=1_000_000, size=(len(batches),))
+        with tqdm_joblib(tqdm(batches, disable=not show_progress_bars, total=len(batches), desc=f"Generating samples ({num_workers + 1 + os.cpu_count()} cores)"
+                              )) as _: theta_batches = Parallel(n_jobs=num_workers)(delayed(sampler_seeded)(proposal, batch, batch_seed) for batch, batch_seed in zip(batches, batch_seeds))
+    else:
+        pbar = tqdm(total=num_simulations, disable=not show_progress_bars, desc=f"Generating {num_simulations} samples.", )
+
+        with pbar:
+            theta_batches = []
+            for batch in batches:
+                theta_batches.append(sampler_seeded(proposal, batch, seed))
+                pbar.update(sim_batch_size)
+
+    theta = torch.cat(theta_batches, dim=0)
+    
+    return theta
+
+
 def simulate_for_sbi(simulator: Callable, proposal: Any, num_simulations: int, num_workers: int = 1, simulation_batch_size: int = 1, seed: Optional[int] = None,
                      show_progress_bar: bool = True)-> Tuple[Tensor, Tensor]:
 
-    def sample_from_proposal(simulation_batch_size):
-        return proposal.sample((simulation_batch_size,))
-
-    num_batches = num_simulations // simulation_batch_size
-    if num_batches * simulation_batch_size < num_simulations:
-        num_batches =+ 1
-
-    if num_workers <= -1:
-        with tqdm_joblib(tqdm(disable=not show_progress_bar, total=num_batches,
-                              desc=f"Generating samples ({num_workers + 1 + os.cpu_count()} cores)")) as _:theta_batches = Parallel(n_jobs=num_workers)(delayed(sample_from_proposal)(simulation_batch_size) for _ in range(num_batches))
-    else:
-        print("Sequential sample generation (num_cores=1)...")
-        theta_batches = [sample_from_proposal(simulation_batch_size) for _ in range(num_batches)]
-
-    theta = torch.cat(theta_batches, dim=0)[:num_simulations]
-
+    theta = sample_in_batches(proposal, num_simulations, simulation_batch_size, num_workers)
     x = simulate_in_batches(simulator=simulator, theta=theta, sim_batch_size=simulation_batch_size, num_workers=num_workers, seed=seed, show_progress_bars=show_progress_bar)
 
     return theta, x
