@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "/project/home23/sg2023/Desktop/SBI/sbirepo/snpe/ss_nonorm_2r5k2p.py", line 4, in <module>
+    import torch
+  File "/project/home23/sg2023/anaconda3/lib/python3.11/site-packages/torch/__init__.py", line 1215, in <module>
+    from .storage import _StorageBase, TypedStorage, _LegacyStorage, UntypedStorage, _warn_typed_storage_removal
+  File "/project/home23/sg2023/anaconda3/lib/python3.11/site-packages/torch/storage.py", line 14, in <module>
+    import numpy as np
+  File "/project/home23/sg2023/anaconda3/lib/python3.11/site-packages/numpy/__init__.py", line 154, in <module>
+    from . import ma
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 936, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1032, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1131, in get_data
+KeyboardInterrupt
