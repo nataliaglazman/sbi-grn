@@ -1,0 +1,5 @@
+nohup: ignoring input
+Traceback (most recent call last):
+  File "/project/home23/sg2023/Desktop/SBI/sbirepo/rej-abc/rej_abc_updated_3-2params.py", line 16, in <module>
+    import peakutils
+ModuleNotFoundError: No module named 'peakutils'
